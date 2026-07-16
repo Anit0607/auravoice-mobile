@@ -5,13 +5,9 @@ project_type: react-native
 trigger_map:
 - push_branch: main
   workflow: primary
-- push_branch: develop
-  workflow: primary
 workflows:
   primary:
     steps:
-    - activate-ssh-key@4:
-        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
     - git-clone@6: {}
     - cache-pull@2: {}
     - install-missing-android-tools@2:
@@ -20,22 +16,24 @@ workflows:
     - npm@1:
         inputs:
         - command: ci
-    - change-workdir@1:
+    - script@1:
+        title: Build Android APK
         inputs:
-        - path: ./android
-        - is_create_path: 'false'
-    - gradle-runner@2:
+        - content: |-
+            #!/bin/bash
+            set -ex
+            cd android
+            ./gradlew clean assembleRelease
+            cd ..
+    - script@1:
+        title: Copy APK to Deploy Directory
         inputs:
-        - gradle_task: assembleRelease
-        - gradlew_path: ./gradlew
-    - change-workdir@1:
-        inputs:
-        - path: ../
-    - file-downloader@1:
-        inputs:
-        - source: file:///home/ubuntu/auravoice-mobile/android/app/build/outputs/apk/release/app-release.apk
-        - destination: $BITRISE_DEPLOY_DIR/auravoice.apk
-        run_if: 'true'
+        - content: |-
+            #!/bin/bash
+            set -ex
+            mkdir -p $BITRISE_DEPLOY_DIR
+            cp android/app/build/outputs/apk/release/app-release.apk $BITRISE_DEPLOY_DIR/auravoice-ai.apk
+            ls -lh $BITRISE_DEPLOY_DIR/
     - deploy-to-bitrise-io@2:
         inputs:
         - notify_user_groups: on-failure
@@ -48,6 +46,3 @@ app:
   - opts:
       is_expand: false
     GRADLE_WRAPPER_LOCATION: android/gradlew
-  - opts:
-      is_expand: false
-    GRADLEW_PATH: ./android/gradlew
