@@ -17,6 +17,9 @@ workflows:
     - install-missing-android-tools@2:
         inputs:
         - gradlew_path: ./android/gradlew
+    - npm@1:
+        inputs:
+        - command: ci
     - change-workdir@1:
         inputs:
         - path: ./android
@@ -28,14 +31,15 @@ workflows:
     - change-workdir@1:
         inputs:
         - path: ../
-    - cache-push@2: {}
+    - file-downloader@1:
+        inputs:
+        - source: file:///home/ubuntu/auravoice-mobile/android/app/build/outputs/apk/release/app-release.apk
+        - destination: $BITRISE_DEPLOY_DIR/auravoice.apk
+        run_if: 'true'
     - deploy-to-bitrise-io@2:
         inputs:
         - notify_user_groups: on-failure
-    - github-status@2:
-        inputs:
-        - auth_token: $GITHUB_TOKEN
-        - status: success
+    - cache-push@2: {}
 app:
   envs:
   - opts:
