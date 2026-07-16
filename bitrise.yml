@@ -1,0 +1,49 @@
+---
+format_version: '11'
+default_step_lib_source: https://github.com/bitrise-io/bitrise-steplib.git
+project_type: react-native
+trigger_map:
+- push_branch: main
+  workflow: primary
+- push_branch: develop
+  workflow: primary
+workflows:
+  primary:
+    steps:
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@6: {}
+    - cache-pull@2: {}
+    - install-missing-android-tools@2:
+        inputs:
+        - gradlew_path: ./android/gradlew
+    - change-workdir@1:
+        inputs:
+        - path: ./android
+        - is_create_path: 'false'
+    - gradle-runner@2:
+        inputs:
+        - gradle_task: assembleRelease
+        - gradlew_path: ./gradlew
+    - change-workdir@1:
+        inputs:
+        - path: ../
+    - cache-push@2: {}
+    - deploy-to-bitrise-io@2:
+        inputs:
+        - notify_user_groups: on-failure
+    - github-status@2:
+        inputs:
+        - auth_token: $GITHUB_TOKEN
+        - status: success
+app:
+  envs:
+  - opts:
+      is_expand: false
+    GRADLE_BUILD_FILE_PATH: android/build.gradle
+  - opts:
+      is_expand: false
+    GRADLE_WRAPPER_LOCATION: android/gradlew
+  - opts:
+      is_expand: false
+    GRADLEW_PATH: ./android/gradlew
