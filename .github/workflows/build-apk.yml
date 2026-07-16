@@ -5,9 +5,6 @@ on:
     branches:
       - main
       - develop
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 jobs:
@@ -24,26 +21,39 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: Install dependencies
         run: npm ci
 
-      - name: Setup Expo
-        uses: expo/expo-github-action@v8
-        with:
-          expo-version: latest
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Install Expo CLI
+        run: npm install -g expo-cli
 
-      - name: Build APK with EAS
-        run: eas build --platform android --non-interactive --wait
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      - name: Prebuild Android
+        run: expo prebuild --platform android --clean
+
+      - name: Build APK
+        run: cd android && ./gradlew assembleRelease && cd ..
+
+      - name: Find APK
+        id: find_apk
+        run: |
+          APK_PATH=$(find . -name "*.apk" -type f | head -1)
+          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+          echo "Found APK at: $APK_PATH"
 
       - name: Upload APK to artifacts
         uses: actions/upload-artifact@v4
         with:
           name: auravoice-apk
-          path: '**/*.apk'
+          path: ${{ steps.find_apk.outputs.apk_path }}
 
       - name: Create Release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -54,25 +64,24 @@ jobs:
           tag_name: v${{ github.run_number }}
           release_name: AuraVoice v${{ github.run_number }}
           body: |
-            Automated build from commit ${{ github.sha }}
+            Automated APK build from commit ${{ github.sha }}
             
-            **Download APK:** Check the artifacts section
-            
-            To install on Android:
-            1. Download the APK file
+            **Download and Install:**
+            1. Download the APK from artifacts
             2. Transfer to your Android phone
             3. Open file manager and tap the APK
             4. Follow installation prompts
+            
+            **Changelog:**
+            Latest build with all features
           draft: false
           prerelease: false
 
       - name: Upload APK to Release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/upload-release-asset@v1
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ${{ steps.find_apk.outputs.apk_path }}
+          tag_name: v${{ github.run_number }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: '**/*.apk'
-          asset_name: auravoice-${{ github.run_number }}.apk
-          asset_content_type: application/vnd.android.package-archive
