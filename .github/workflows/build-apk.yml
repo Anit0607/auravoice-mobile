@@ -1,16 +1,15 @@
-name: Build APK
+name: Build Android APK
 
 on:
   push:
     branches:
       - main
-      - develop
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -21,7 +20,7 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
-      - name: Setup Java
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -31,57 +30,51 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
-      - name: Install Expo CLI
-        run: npm install -g expo-cli
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
 
-      - name: Prebuild Android
-        run: expo prebuild --platform android --clean
-
-      - name: Build APK
-        run: cd android && ./gradlew assembleRelease && cd ..
+      - name: Build Debug APK
+        run: cd android && ./gradlew assembleDebug --no-daemon
+        env:
+          JAVA_OPTS: "-Xmx4g"
 
       - name: Find APK
         id: find_apk
         run: |
-          APK_PATH=$(find . -name "*.apk" -type f | head -1)
+          APK_PATH=$(find android -name "*.apk" -type f | head -1)
           echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
           echo "Found APK at: $APK_PATH"
+          ls -lh $APK_PATH
 
-      - name: Upload APK to artifacts
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: auravoice-apk
+          name: auravoice-debug-apk
           path: ${{ steps.find_apk.outputs.apk_path }}
+          retention-days: 30
 
-      - name: Create Release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create GitHub Release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ github.run_number }}
-          release_name: AuraVoice v${{ github.run_number }}
+          tag_name: build-${{ github.run_number }}
+          name: "AuraVoice Build #${{ github.run_number }}"
           body: |
-            Automated APK build from commit ${{ github.sha }}
-            
-            **Download and Install:**
-            1. Download the APK from artifacts
-            2. Transfer to your Android phone
-            3. Open file manager and tap the APK
-            4. Follow installation prompts
-            
-            **Changelog:**
-            Latest build with all features
-          draft: false
-          prerelease: false
+            ## AuraVoice AI - Android APK
 
-      - name: Upload APK to Release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v1
-        with:
+            **Build:** #${{ github.run_number }}
+            **Commit:** ${{ github.sha }}
+
+            ### Install Instructions
+            1. Download the APK file below
+            2. Transfer to your Android phone
+            3. Enable "Install from unknown sources" in Settings > Security
+            4. Open the APK file and install
+
+            > This is a debug build for testing purposes.
           files: ${{ steps.find_apk.outputs.apk_path }}
-          tag_name: v${{ github.run_number }}
+          make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
