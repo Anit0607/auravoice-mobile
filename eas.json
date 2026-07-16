@@ -2,6 +2,7 @@
   "cli": {
     "version": ">= 21.0.0"
   },
+  "projectId": "auravoice-mobile",
   "build": {
     "development": {
       "developmentClient": true,

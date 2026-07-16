@@ -1,5 +1,6 @@
 {
   "expo": {
+    "owner": "anitbose",
     "name": "AuraVoice",
     "slug": "auravoice-mobile",
     "version": "1.0.0",
@@ -37,6 +38,9 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "runtimeVersion": {
+      "policy": "sdkVersion"
     }
   }
 }
